@@ -55,7 +55,7 @@ void PMP_Check(char *filepath, char *address, char mode, char oper){
     2. address: Address of the memory location for which the permission is to be checked
     3. mode: Privilege mode, which maybe M, S or U 
     4. oper: The operation that is to be performed, which includes R, W and X
-    The function returns nothing
+    The functions return type is void
     The following assumptions are made regarding the configuration file:
     - Config file contains 129 lines
     - First 64 lines are the data of the corresponding 64 pmp configuration registers 
@@ -125,21 +125,31 @@ void PMP_Check(char *filepath, char *address, char mode, char oper){
 } 
 
 void Bin_convert(char pmp_cnfgn[][9], int num_reg){
+    /*Function defined specifically for PMP configuration registers
+    Converts the hexadecimal string in the set of pmp configuration registers and converts
+    them into binary strings
+    Takes two arguments:
+    1. pmp_cnfgn[][9]: A 2D array containing the data of all the pmp configuration registers
+    2. num_reg: An int which corresponds to the number of pmp configuration registers
+    The function's return type is void
+    Changes are made on default pmp configuration registers, not on a separate instance */
     int j, start;
     char *start_ptr;
     char temp[9];
     for (j = 0; j < num_reg; j++){
-        // locating the \n character in the address string
+        // Finding the index of \n character in the address string
         start_ptr = strchr(pmp_cnfgn[j], '\n');
-        start = start_ptr - pmp_cnfgn[j];
+        start = start_ptr - pmp_cnfgn[j]; // LS hex digit is before this index
         int val;
         int repeat = 0;
         int pos = 0;
 
         while (repeat < 2){
-            if ((pmp_cnfgn[j][start - 2] == 'x') && (pos != 0)){
+            // Cases where hex string is of the form 0xn. In such cases MS hex digit is 0
+            if ((pmp_cnfgn[j][start - 2] == 'x') && (pos != 0)){ 
                 strncpy(temp + pos, bin[0], 4);
             }
+            // Cases where hex string is of the form 0xmn. In such cases MS hex digit is m
             else if ((pmp_cnfgn[j][start - 2 + repeat] >= '0' ) && (pmp_cnfgn[j][start - 2 + repeat] <= '9')){
                 val = pmp_cnfgn[j][start - 2 + repeat] - '0';
                 strncpy(temp + pos, bin[val], 4);
@@ -152,7 +162,7 @@ void Bin_convert(char pmp_cnfgn[][9], int num_reg){
                 val = pmp_cnfgn[j][start - 2 + repeat] - 'a' + 10;
                 strncpy(temp + pos, bin[val], 4);
             }
-            pos += 4;
+            pos += 4; // After inserting the binary equivalent in upper half of array, insertion is to be done in lower half
             repeat++;
         }
         temp[8] = '\0';
