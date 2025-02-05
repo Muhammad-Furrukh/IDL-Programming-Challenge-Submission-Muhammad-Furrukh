@@ -188,31 +188,31 @@ int addr_search_TOR(char pmp_addr[][13], int num_reg, char *addr, int pointer){
         start = start_ptr - pmp_addr[j];
         
         // Starting at the LS hex digit and moving up more significant hex digits
-        int k = sizeof(addr) - 1;
-        int l = 0;
-        while ((k != 0) || (start - 1 - l != 0)){
-            if ((addr[k] != 'x') && (pmp_addr[j][start - 1 -l] != 'x')){
+        int k = sizeof(addr) - 1; // pointer for hex digit in addr
+        int l = 0; // pointer for hex digit in pmp_addr[j]
+        while ((k != 0) || (start - 1 - l != 0)){ // traversing up the hex strings
+            if ((addr[k] != 'x') && (pmp_addr[j][start - 1 -l] != 'x')){ // Neither string traversed completely
                 k--;
                 l++;
             }
-            else if ((addr[k] != 'x') && (pmp_addr[j][start - 1 -l] == 'x')){
+            else if ((addr[k] != 'x') && (pmp_addr[j][start - 1 -l] == 'x')){ // pmp_addr[j] traversed first, so addr is out of range
                 break;
             }
-            else if ((addr[k] == 'x') && (pmp_addr[j][start - 1 -l] != 'x')){
+            else if ((addr[k] == 'x') && (pmp_addr[j][start - 1 -l] != 'x')){ // addr is traversed first, so is within the range
                 return j;
             }
             // Both are equal length hexadecimals
-            else if ((addr[k] == 'x') && (pmp_addr[j][start - 1 -l] == 'x')){
-                // Moving to less significant bits as long as the MSB's are same
+            else if ((addr[k] == 'x') && (pmp_addr[j][start - 1 -l] == 'x')){ // Both traversed at the same time. Hence, length of strings is equal
+                // Moving to less significant bits as long as the MS hex digit's are same
                 while (addr[k+1] == pmp_addr[j][start - l]){
                     k++;
                     l--;
                 }
-                // Deciding which of hexadecimal numbers is greater
-                if (addr[k+1] > pmp_addr[j][start - l]){
+                // Deciding whose hexadecimal digit is greater
+                if (addr[k+1] > pmp_addr[j][start - l]){ // addr is outside the range
                     break;
                 }
-                else{
+                else{ // addr is within the range
                     return j;
                 }
             }
