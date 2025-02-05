@@ -135,7 +135,7 @@ void Bin_convert(char pmp_cnfgn[][9], int num_reg){
     Changes are made on default pmp configuration registers, not on a separate instance */
     int j, start;
     char *start_ptr;
-    char temp[9];
+    char temp[9]; // temporary variable to store binary string
     for (j = 0; j < num_reg; j++){
         // Finding the index of \n character in the address string
         start_ptr = strchr(pmp_cnfgn[j], '\n');
@@ -166,19 +166,28 @@ void Bin_convert(char pmp_cnfgn[][9], int num_reg){
             repeat++;
         }
         temp[8] = '\0';
-        strcpy(pmp_cnfgn[j], temp);
+        strcpy(pmp_cnfgn[j], temp); // binary string replacing hex string in configuration register
     }
 }
 
 int addr_search_TOR(char pmp_addr[][13], int num_reg, char *addr, int pointer){
+    /* This function searches for the relevant PMP address register, given the relevant memory address
+    mode is TOR
+    It takes the following arguments:
+    1. pmp_addr[][13]: A 2D array containing the data of all 64 pmp address registers
+    2. num_reg: An int corresponding to the number of pmp address registers
+    3. addr: A hexadecimal string for the address of the memory location that is being searched for
+    4. pointer: starting register number
+    Returns an int which corresponds to the relevant address register number*/
+    
     int j, start;
     char *start_ptr;
     for (j = pointer; j < num_reg; j++){
-        // locating the \n character in the address string
+        // Finding the index of \n character in the address string
         start_ptr = strchr(pmp_addr[j], '\n');
         start = start_ptr - pmp_addr[j];
         
-        // Starting at the LSB side and moving up more significant bits
+        // Starting at the LS hex digit and moving up more significant hex digits
         int k = sizeof(addr) - 1;
         int l = 0;
         while ((k != 0) || (start - 1 - l != 0)){
