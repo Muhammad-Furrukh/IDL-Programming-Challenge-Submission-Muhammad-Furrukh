@@ -173,7 +173,7 @@ void Bin_convert(char pmp_cnfgn[][9], int num_reg){
 int addr_search_TOR(char pmp_addr[][13], int num_reg, char *addr, int pointer){
     /* This function searches for the relevant PMP address register, given the relevant memory address
     mode is TOR
-    It takes the following arguments:
+    Takes 4 arguments:
     1. pmp_addr[][13]: A 2D array containing the data of all 64 pmp address registers
     2. num_reg: An int corresponding to the number of pmp address registers
     3. addr: A hexadecimal string for the address of the memory location that is being searched for
@@ -240,6 +240,13 @@ int addr_search_NA4(char pmp_addr[][13], int num_reg, char *addr, int pointer){
 }
 
 int MODE_check(char pmp_cnfgn[][9], int num_reg, int pointer){
+    /* Function to check address mode of a given configuration register
+    Takes 3 arguments:
+    1. pmp_cnfgn[][9]: A 2D array containing the data of all the pmp configuration registers
+    2. num_reg: An int corresponding to the total number of configuration registers
+    3. pointer: register number for which the address mode is to be checked 
+    Returns an int corresponding to address modes of the pmp configuration register
+    */
     if ((pmp_cnfgn[pointer][3] == '0') && (pmp_cnfgn[pointer][4] == '0')){
         return 0;
     }
@@ -255,6 +262,14 @@ int MODE_check(char pmp_cnfgn[][9], int num_reg, int pointer){
 }
 
 void Perm_check(char pmp_cnfgn[][9], char oper, int pointer){
+    /* Function to check relevant permissions of a given configuration register
+    Takes 3 arguments:
+    1. pmp_cnfgn[][9]: A 2D array containing the data of all the pmp configuration registers
+    2. oper: R, W, X operation that is to be performed for relevant memory block
+    3. pointer: Relevant configuration register number
+    Return type is void
+    Function prints whether there is an access fault or not*/
+
     switch (oper)
     {
     case 'R':
