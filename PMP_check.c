@@ -6,7 +6,8 @@ void PMP_Check(char *filepath, char *address, char mode, char oper);
 void Bin_convert(char pmp_cnfgn[][9], int num_reg);
 void mode_store(char pmp_cnfgn[64][9], int addr_mode[64]);
 int MODE_check(char pmp_cnfgn_reg[9]);
-int addr_search_TOR(char pmp_addr[][13], int num_reg, char *addr, int pointer);
+int addr_search(char pmp_addr[64][13], int addr_mode[64], char *addr);
+int TOR_addr_check(char pmp_addr_reg[13], char *addr);
 void Perm_check(char pmp_cnfgn[][9], char oper, int pointer);
 int addr_search_NA4(char pmp_addr[][13], int num_reg, char *addr, int pointer);
 
@@ -95,7 +96,7 @@ void PMP_Check(char *filepath, char *address, char mode, char oper){
     // Storing address modes of PMP entries in a separate array
     int addr_mode[64];
     mode_store(pmpcnfgn, addr_mode);
-    int x = addr_search_TOR(pmpaddr, 64, address, 0); // Searches for the relevant pmp address and config register number
+    int x = addr_search(pmpaddr, addr_mode, address); // Searches for the relevant pmp address and config register number
     printf("%s\n", pmpcnfgn[x]);
     // Checking address matching mode of the found register
     int addr_mode = MODE_check(pmpcnfgn, 64, x);
@@ -202,7 +203,23 @@ int MODE_check(char pmp_cnfgn_reg[9]){
     }
 }
 
-int addr_search_TOR(char pmp_addr[][13], int num_reg, char *addr, int pointer){
+int addr_search(char pmp_addr[64][13], int addr_mode[64], char *addr){
+    int i = 0;
+    int bool;
+    while (i < 64){
+        if (addr_mode[i] == 0){
+            // OFF mode, so PMP entry is disabled
+        }
+        else if (addr_mode[i] == 1){
+            // TOR Mode
+            bool = TOR_addr_check(pmp_addr[i], addr);
+            
+        }
+        i++;
+    }
+}
+
+int TOR_addr_check(char pmp_addr_reg[13], char *addr){
     /* This function searches for the relevant PMP address register, given the relevant memory address
     mode is TOR
     Takes 4 arguments:
@@ -212,41 +229,39 @@ int addr_search_TOR(char pmp_addr[][13], int num_reg, char *addr, int pointer){
     4. pointer: starting register number
     Returns an int which corresponds to the relevant address register number*/
     
-    int j, start;
+    int start;
     char *start_ptr;
-    for (j = pointer; j < num_reg; j++){
-        // Finding the index of \n character in the address string
-        start_ptr = strchr(pmp_addr[j], '\n');
-        start = start_ptr - pmp_addr[j];
+    // Finding the index of \n character in the address string
+    start_ptr = strchr(pmp_addr_reg, '\n');
+    start = start_ptr - pmp_addr_reg;
         
-        // Starting at the LS hex digit and moving up more significant hex digits
-        int k = sizeof(addr) - 1; // pointer for hex digit in addr
-        int l = 0; // pointer for hex digit in pmp_addr[j]
-        while ((k != 0) || (start - 1 - l != 0)){ // traversing up the hex strings
-            if ((addr[k] != 'x') && (pmp_addr[j][start - 1 -l] != 'x')){ // Neither string traversed completely
-                k--;
-                l++;
+    // Starting at the LS hex digit and moving up more significant hex digits
+    int k = sizeof(addr) - 1; // pointer for hex digit in addr
+    int l = 0; // pointer for hex digit in pmp_addr_reg
+    while ((k != 0) || (start - 1 - l != 0)){ // traversing up the hex strings
+        if ((addr[k] != 'x') && (pmp_addr_reg[start - 1 -l] != 'x')){ // Neither string traversed completely
+            k--;
+            l++;
+        }
+        else if ((addr[k] != 'x') && (pmp_addr_reg[start - 1 - l] == 'x')){ // pmp_addr[j] traversed first, so addr is out of range
+            return 0;
+        }
+        else if ((addr[k] == 'x') && (pmp_addr_reg[start - 1 - l] != 'x')){ // addr is traversed first, so is within the range
+            return 1;
+        }
+        // Both are equal length hexadecimals
+        else if ((addr[k] == 'x') && (pmp_addr_reg[start - 1 - l] == 'x')){ // Both traversed at the same time. Hence, length of strings is equal
+            // Moving to less significant bits as long as the MS hex digit's are same
+            while (addr[k+1] == pmp_addr_reg[start - l]){
+                k++;
+                l--;
             }
-            else if ((addr[k] != 'x') && (pmp_addr[j][start - 1 -l] == 'x')){ // pmp_addr[j] traversed first, so addr is out of range
-                break;
+            // Deciding whose hexadecimal digit is greater
+            if (addr[k+1] > pmp_addr_reg[start - l]){ // addr is outside the range
+                return 0;
             }
-            else if ((addr[k] == 'x') && (pmp_addr[j][start - 1 -l] != 'x')){ // addr is traversed first, so is within the range
-                return j;
-            }
-            // Both are equal length hexadecimals
-            else if ((addr[k] == 'x') && (pmp_addr[j][start - 1 -l] == 'x')){ // Both traversed at the same time. Hence, length of strings is equal
-                // Moving to less significant bits as long as the MS hex digit's are same
-                while (addr[k+1] == pmp_addr[j][start - l]){
-                    k++;
-                    l--;
-                }
-                // Deciding whose hexadecimal digit is greater
-                if (addr[k+1] > pmp_addr[j][start - l]){ // addr is outside the range
-                    break;
-                }
-                else{ // addr is within the range
-                    return j;
-                }
+            else{ // addr is within the range
+                return 1;
             }
         }
     }
