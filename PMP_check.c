@@ -4,8 +4,9 @@
 
 void PMP_Check(char *filepath, char *address, char mode, char oper);
 void Bin_convert(char pmp_cnfgn[][9], int num_reg);
+void mode_store(char pmp_cnfgn[64][9], int addr_mode[64]);
+int MODE_check(char pmp_cnfgn_reg[9]);
 int addr_search_TOR(char pmp_addr[][13], int num_reg, char *addr, int pointer);
-int MODE_check(char pmp_cnfgn[][9], int num_reg, int pointer);
 void Perm_check(char pmp_cnfgn[][9], char oper, int pointer);
 int addr_search_NA4(char pmp_addr[][13], int num_reg, char *addr, int pointer);
 
@@ -91,7 +92,9 @@ void PMP_Check(char *filepath, char *address, char mode, char oper){
 
     // Convert string of hexadecimal digits to binary string in pmpcnfgn registers
     Bin_convert(pmpcnfgn, 64);
-    // Assuming the configuration mode is set to TOR mode
+    // Storing address modes of PMP entries in a separate array
+    int addr_mode[64];
+    mode_store(pmpcnfgn, addr_mode);
     int x = addr_search_TOR(pmpaddr, 64, address, 0); // Searches for the relevant pmp address and config register number
     printf("%s\n", pmpcnfgn[x]);
     // Checking address matching mode of the found register
@@ -170,6 +173,35 @@ void Bin_convert(char pmp_cnfgn[][9], int num_reg){
     }
 }
 
+void mode_store(char pmp_cnfgn[64][9], int addr_mode[64]){
+    int i;
+    for (i = 0; i < 64; i++){
+        addr_mode[i] = MODE_check(pmp_cnfgn[i]);
+    }
+}
+
+int MODE_check(char pmp_cnfgn_reg[9]){
+    /* Function to check address mode of a given configuration register
+    Takes 3 arguments:
+    1. pmp_cnfgn[][9]: A 2D array containing the data of all the pmp configuration registers
+    2. num_reg: An int corresponding to the total number of configuration registers
+    3. pointer: register number for which the address mode is to be checked 
+    Returns an int corresponding to address modes of the pmp configuration register
+    */
+    if ((pmp_cnfgn_reg[3] == '0') && (pmp_cnfgn_reg[4] == '0')){
+        return 0;
+    }
+    else if ((pmp_cnfgn_reg[3] == '0') && (pmp_cnfgn_reg[4] == '1')){
+        return 1;
+    }
+    else if ((pmp_cnfgn_reg[3] == '1') && (pmp_cnfgn_reg[4] == '0')){
+        return 2;
+    }
+    else{
+        return 3;
+    }
+}
+
 int addr_search_TOR(char pmp_addr[][13], int num_reg, char *addr, int pointer){
     /* This function searches for the relevant PMP address register, given the relevant memory address
     mode is TOR
@@ -239,27 +271,7 @@ int addr_search_NA4(char pmp_addr[][13], int num_reg, char *addr, int pointer){
     }
 }
 
-int MODE_check(char pmp_cnfgn[][9], int num_reg, int pointer){
-    /* Function to check address mode of a given configuration register
-    Takes 3 arguments:
-    1. pmp_cnfgn[][9]: A 2D array containing the data of all the pmp configuration registers
-    2. num_reg: An int corresponding to the total number of configuration registers
-    3. pointer: register number for which the address mode is to be checked 
-    Returns an int corresponding to address modes of the pmp configuration register
-    */
-    if ((pmp_cnfgn[pointer][3] == '0') && (pmp_cnfgn[pointer][4] == '0')){
-        return 0;
-    }
-    else if ((pmp_cnfgn[pointer][3] == '0') && (pmp_cnfgn[pointer][4] == '1')){
-        return 1;
-    }
-    else if ((pmp_cnfgn[pointer][3] == '1') && (pmp_cnfgn[pointer][4] == '0')){
-        return 2;
-    }
-    else{
-        return 3;
-    }
-}
+
 
 void Perm_check(char pmp_cnfgn[][9], char oper, int pointer){
     /* Function to check relevant permissions of a given configuration register
