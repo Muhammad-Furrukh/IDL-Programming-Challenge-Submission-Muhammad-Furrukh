@@ -7,7 +7,7 @@ void Bin_convert(char pmp_cnfgn[][9], int num_reg);
 void mode_store(char pmp_cnfgn[64][9], int addr_mode[64]);
 int MODE_check(char pmp_cnfgn_reg[9]);
 int addr_search(char pmp_addr[64][13], int addr_mode[64], char *addr);
-int TOR_addr_check(char pmp_addr_reg[13], char *addr);
+int TOR_addr_check(char pmp_addr[64][13], char *addr, int pointer);
 void Perm_check(char pmp_cnfgn[][9], char oper, int pointer);
 int addr_search_NA4(char pmp_addr[][13], int num_reg, char *addr, int pointer);
 
@@ -212,11 +212,15 @@ int addr_search(char pmp_addr[64][13], int addr_mode[64], char *addr){
         }
         else if (addr_mode[i] == 1){
             // TOR Mode
-            bool = TOR_addr_check(pmp_addr[i], addr);
+            bool = TOR_addr_check(pmp_addr, addr, i);
         }
         else if (addr_mode[i] == 2){
             // NA4 Mode
             bool = NA4_addr_check(pmp_addr[i], addr);
+        }
+        else{
+            // NAPOT Mode
+            bool = NAPOT_addr_check(pmp_addr[i], addr);
         }
         if (bool == 1){
             return i;
@@ -225,7 +229,7 @@ int addr_search(char pmp_addr[64][13], int addr_mode[64], char *addr){
     }
 }
 
-int TOR_addr_check(char pmp_addr_reg[13], char *addr){
+int TOR_addr_check(char pmp_addr[64][13], char *addr, int pointer){
     /* This function searches for the relevant PMP address register, given the relevant memory address
     mode is TOR
     Takes 4 arguments:
@@ -235,44 +239,32 @@ int TOR_addr_check(char pmp_addr_reg[13], char *addr){
     4. pointer: starting register number
     Returns an int which corresponds to the relevant address register number*/
     
-    int start;
-    char *start_ptr;
-    // Finding the index of \n character in the address string
-    start_ptr = strchr(pmp_addr_reg, '\n');
-    start = start_ptr - pmp_addr_reg;
-        
-    // Starting at the LS hex digit and moving up more significant hex digits
-    int k = sizeof(addr) - 1; // pointer for hex digit in addr
-    int l = 0; // pointer for hex digit in pmp_addr_reg
-    while ((k != 0) || (start - 1 - l != 0)){ // traversing up the hex strings
-        if ((addr[k] != 'x') && (pmp_addr_reg[start - 1 -l] != 'x')){ // Neither string traversed completely
-            k--;
-            l++;
-        }
-        else if ((addr[k] != 'x') && (pmp_addr_reg[start - 1 - l] == 'x')){ // pmp_addr_reg traversed first, so addr is out of range
-            return 0;
-        }
-        else if ((addr[k] == 'x') && (pmp_addr_reg[start - 1 - l] != 'x')){ // addr is traversed first, so is within the range
-            return 1;
-        }
-        // Both are equal length hexadecimals
-        else if ((addr[k] == 'x') && (pmp_addr_reg[start - 1 - l] == 'x')){ // Both traversed at the same time. Hence, length of strings is equal
-            // Moving to less significant bits as long as the MS hex digit's are same
-            while (addr[k+1] == pmp_addr_reg[start - l]){
-                if (l == 0){
-                    return 0;
-                }
-                k++;
-                l--;
+    char *temp1 = pmp_addr[pointer];
+    if (pointer != 0){
+        char *temp2 = pmp_addr[pointer];
+        while (*temp2){
+            if ((*temp2 == '\n') && (*temp2 == '\r')){
+                *temp2 = '\0';
             }
-            // Deciding whose hexadecimal digit is greater
-            if (addr[k+1] > pmp_addr_reg[start - l]){ // addr is outside the range
-                return 0;
-            }
-            else{ // addr is within the range
-                return 1;
-            }
+            temp2++;
         }
+    }
+    while (*temp1){
+        if ((*temp1 == '\n') && (*temp1 == '\r')){
+            *temp1 = '\0';
+        }
+        temp1++;
+    }
+
+    long pointer1_dec = strtol(pmp_addr[pointer], NULL, 16);
+    long pointer2_dec = strtol(pmp_addr[pointer-1], NULL, 16);
+    long input_dec = strtol(addr, NULL, 16);
+
+    if ((input_dec >= pointer2_dec) && (input_dec < pointer1_dec)){
+        return 1;
+    }
+    else{
+        return 0;
     }
 }
 
