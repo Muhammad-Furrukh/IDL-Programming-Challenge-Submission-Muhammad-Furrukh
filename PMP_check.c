@@ -2,8 +2,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
-#include <math.h>
+#include <inttypes.h>
 
+/************************ Functions ***********************************/
 void PMP_Check(char *filepath, char *address, char mode, char oper);
 void Bin_convert(char pmp_cnfgn[][9], int num_reg);
 void mode_store(char pmp_cnfgn[64][9], int addr_mode[64]);
@@ -95,6 +96,7 @@ void PMP_Check(char *filepath, char *address, char mode, char oper){
         printf("pmpaddr_%d = %s", i, pmpaddr[i]);
         i++;
     }
+    printf("\n");
 
     fclose(file);
 
@@ -104,7 +106,12 @@ void PMP_Check(char *filepath, char *address, char mode, char oper){
     int addr_mode[64];
     mode_store(pmpcnfgn, addr_mode);
     int x = addr_search(pmpaddr, addr_mode, address); // Searches for the relevant pmp address and config register number
-    
+    printf("%d\n", x);
+    printf("%d\n", addr_mode[x]);
+    for (int j = 0; j < 8; j++){
+        printf("%c", pmpcnfgn[x][j]);
+    }
+    printf("\n");
     // Correct configuration register has been found 
     // Checking permissions for the memory block
     if ((x == 100) && ((mode == 'U') || (mode == 'S'))){
@@ -136,40 +143,38 @@ void Bin_convert(char pmp_cnfgn[][9], int num_reg){
     2. num_reg: An int which corresponds to the number of pmp configuration registers
     The function's return type is void
     Changes are made on default pmp configuration registers, not on a separate instance */
-    int j, start;
-    char *start_ptr;
+    int j, len, pos, i, val;
+    char *end_ptr;
     char temp[9]; // temporary variable to store binary string
     for (j = 0; j < num_reg; j++){
-        // Finding the index of \n character in the address string
-        start_ptr = strchr(pmp_cnfgn[j], '\n');
-        start = start_ptr - pmp_cnfgn[j]; // LS hex digit is before this index
-        int val;
-        int repeat = 0;
-        int pos = 0;
+        // Inserting missing leading 0's
+        end_ptr = strchr(pmp_cnfgn[j], '\n');
+        len = end_ptr - pmp_cnfgn[j] - 2;
+        pos = 0;
+        for (int j = 0; j < 2 - len; j++){
+            strncpy(temp + pos, bin[0], 4);
+            pos += 4;
+        }
 
-        while (repeat < 2){
-            // Cases where hex string is of the form 0xn. In such cases MS hex digit is 0
-            if ((pmp_cnfgn[j][start - 2] == 'x') && (pos != 0)){ 
-                strncpy(temp + pos, bin[0], 4);
-            }
-            // Cases where hex string is of the form 0xmn. In such cases MS hex digit is m
-            else if ((pmp_cnfgn[j][start - 2 + repeat] >= '0' ) && (pmp_cnfgn[j][start - 2 + repeat] <= '9')){
-                val = pmp_cnfgn[j][start - 2 + repeat] - '0';
+        i = 2;
+        while (pmp_cnfgn[j][i] != '\n'){
+            if ((pmp_cnfgn[j][i] >= '0' ) && (pmp_cnfgn[j][i] <= '9')){
+                val = pmp_cnfgn[j][i] - '0';
                 strncpy(temp + pos, bin[val], 4);
             }
-            else if ((pmp_cnfgn[j][start - 2 + repeat] >= 'A') && (pmp_cnfgn[j][start - 2 + repeat] <= 'F')){
-                val = pmp_cnfgn[j][start - 2 + repeat] - 'A' + 10;
+            else if ((pmp_cnfgn[j][i] >= 'A') && (pmp_cnfgn[j][i] <= 'F')){
+                val = pmp_cnfgn[j][i] - 'A' + 10;
                 strncpy(temp + pos, bin[val], 4);
             }
             else{
-                val = pmp_cnfgn[j][start - 2 + repeat] - 'a' + 10;
+                val = pmp_cnfgn[j][i] - 'a' + 10;
                 strncpy(temp + pos, bin[val], 4);
             }
-            pos += 4; // After inserting the binary equivalent in upper half of array, insertion is to be done in lower half
-            repeat++;
+            pos += 4; 
+            i++;
         }
         temp[8] = '\0';
-        strcpy(pmp_cnfgn[j], temp); // binary string replacing hex string in configuration register
+        strcpy(pmp_cnfgn[j], temp);
     }
 }
 
@@ -197,7 +202,7 @@ int MODE_check(char pmp_cnfgn[64][9], int pointer){
     else if ((pmp_cnfgn[pointer][3] == '1') && (pmp_cnfgn[pointer][4] == '0')){
         return 2;
     }
-    else{
+    else if ((pmp_cnfgn[pointer][3] == '1') && (pmp_cnfgn[pointer][4] == '1')){
         return 3;
     }
 }
@@ -256,9 +261,9 @@ int TOR_addr_check(char pmp_addr[64][13], char *addr, int pointer){
         temp1++;
     }
 
-    uint64_t pointer1_dec = strtol(pmp_addr[pointer], NULL, 16);
-    uint64_t pointer2_dec = strtol(pmp_addr[pointer-1], NULL, 16);
-    uint64_t input_dec = strtol(addr, NULL, 16);
+    uint64_t pointer1_dec = strtoull(pmp_addr[pointer], NULL, 16);
+    uint64_t pointer2_dec = strtoull(pmp_addr[pointer-1], NULL, 16);
+    uint64_t input_dec = strtoull(addr, NULL, 16);
 
     if ((input_dec >= pointer2_dec) && (input_dec < pointer1_dec)){
         return 1;
@@ -276,8 +281,8 @@ int NA4_addr_check(char pmp_addr_reg[13], char *addr){
             }
             temp++;
         }
-    uint64_t pointer_dec = strtol(pmp_addr_reg, NULL, 16);
-    uint64_t input_dec = strtol(addr, NULL, 16);
+    uint64_t pointer_dec = strtoull(pmp_addr_reg, NULL, 16);
+    uint64_t input_dec = strtoull(addr, NULL, 16);
 
     if ((input_dec >= pointer_dec) && (input_dec < pointer_dec + 3)){
         return 1;
@@ -293,7 +298,7 @@ int NAPOT_addr_check(char *pmp_addr_reg, char *addr){
     uint64_t offset = NAPOT_offset(bin_pmp_addr);
     uint64_t base = NAPOT_base(bin_pmp_addr);
 
-    uint64_t search_addr = strtol(addr, NULL, 16);
+    uint64_t search_addr = strtoull(addr, NULL, 16);
     if ((search_addr >= base) && (search_addr < base + offset)){
         return 1;
     }
@@ -308,12 +313,31 @@ void addr_bin_conv(char *pmp_addr_reg, char *bin_addr){
     int i = 2;
     int pos = 0;
 
-    // Inserting missing leading 0's
+    // Inserting 2 MSB bits
     char *end_ptr = strchr(pmp_addr_reg, '\n');
     int len = end_ptr - pmp_addr_reg - 2;
     char *two_zero = "00";
-    strncpy(temp + pos, two_zero, 2);
-    pos += 2;
+    if (len < 9){
+        strncpy(temp + pos, two_zero, 2);
+        pos += 2;
+    }
+    else if (len == 9){
+        val = pmp_addr_reg[i] - '0';
+        if (val == 0){
+            strncpy(temp + pos, "00", 2);
+        }
+        else if (val == 1){
+            strncpy(temp + pos, "01", 2);
+        }
+        else if (val == 2){
+            strncpy(temp + pos, "10", 2);
+        }
+        else if (val == 3){
+            strncpy(temp + pos, "11", 2);
+        }
+        pos += 2;
+    }
+    
     for (int j = 0; j < 9 - len - 1; j++){
         strncpy(temp + pos, bin[0], 4);
         pos += 4;
@@ -335,6 +359,10 @@ void addr_bin_conv(char *pmp_addr_reg, char *bin_addr){
         pos += 4; 
         i++;
     }
+    for (int k = 0; k < 34; k++){
+        printf("%c", temp[k]);
+    }
+    printf("\n");
     temp[34] = '\0';
     strcpy(bin_addr, temp);
 }
@@ -354,6 +382,7 @@ uint64_t NAPOT_offset(char bin_addr[35]){
     for (int j = 0; j < power; j++){
         offset *= 2;
     }
+    printf("Offset: %" PRIu64 "\n", offset);
     return offset;
 }
 
@@ -368,7 +397,12 @@ uint64_t NAPOT_base(char bin_addr[35]){
         }
         i--;
     }
-    uint64_t base = strtol(bin_addr, NULL, 2);
+    for (int k = 0; k < 34; k++){
+        printf("%c", bin_addr[k]);
+    }
+
+    uint64_t base = strtoull(bin_addr, NULL, 2);
+    printf("base: %" PRIu64 "\n", base);
     return base;
 }
 
