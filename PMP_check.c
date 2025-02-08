@@ -6,7 +6,7 @@
 
 /************************ Functions ***********************************/
 void PMP_Check(char *filepath, char *address, char mode, char oper);
-void Bin_convert(char pmp_cnfgn[][9], int num_reg);
+void cnfgn_bin_convert(char pmp_cnfgn[64][9]);
 void mode_store(char pmp_cnfgn[64][9], int addr_mode[64]);
 int MODE_check(char pmp_cnfgn[64][9], int pointer);
 int addr_search(char pmp_addr[64][13], int addr_mode[64], char *addr);
@@ -18,6 +18,7 @@ uint64_t NAPOT_offset(char bin_addr[35]);
 uint64_t NAPOT_base(char bin_addr[35]);
 int checkLock(char pmp_cnfgn[64][9]);
 void Perm_check(char pmp_cnfgn[][9], char oper, int pointer);
+/***********************************************************************/
 
 char *bin[] = {"0000", "0001", "0010", "0011", "0100", "0101", "0110", "0111", 
                "1000", "1001", "1010", "1011", "1100", "1101", "1110", "1111"};
@@ -67,10 +68,9 @@ void PMP_Check(char *filepath, char *address, char mode, char oper){
     4. oper: The operation that is to be performed, which includes R, W and X
     The functions return type is void
     The following assumptions are made regarding the configuration file:
-    - Config file contains 129 lines
+    - Config file contains 128 lines
     - First 64 lines are the data of the corresponding 64 pmp configuration registers 
     - Next 64 lines are the data of the corresponding  64 pmp address registers
-    - Last line is empty, so that the 64th address register data has a next line character at the end
     - There are no semi-colons at the end of each line and each line starts with 0x
     - Data is in hexadecimal format*/
 
@@ -101,18 +101,18 @@ void PMP_Check(char *filepath, char *address, char mode, char oper){
     fclose(file);
 
     // Convert string of hexadecimal digits to binary string in pmpcnfgn registers
-    Bin_convert(pmpcnfgn, 64);
+    cnfgn_bin_convert(pmpcnfgn);
     // Storing address modes of PMP entries in a separate array
     int addr_mode[64];
     mode_store(pmpcnfgn, addr_mode);
-    int x = addr_search(pmpaddr, addr_mode, address); // Searches for the relevant pmp address and config register number
-    printf("%d\n", x);
-    printf("%d\n", addr_mode[x]);
+    // Searches for the relevant pmp address and config register number
+    int x = addr_search(pmpaddr, addr_mode, address); 
+    // Prints data in binary format for the selected config register
+    printf("pmpcnfgn_%d = %s", x, pmpcnfgn[x]);
     for (int j = 0; j < 8; j++){
         printf("%c", pmpcnfgn[x][j]);
     }
-    printf("\n");
-    // Correct configuration register has been found 
+    printf("\n"); 
     // Checking permissions for the memory block
     if ((x == 100) && ((mode == 'U') || (mode == 'S'))){
         printf("Access fault.\n");
@@ -134,30 +134,31 @@ void PMP_Check(char *filepath, char *address, char mode, char oper){
     
 } 
 
-void Bin_convert(char pmp_cnfgn[][9], int num_reg){
-    /*Function defined specifically for PMP configuration registers
+void cnfgn_bin_convert(char pmp_cnfgn[64][9]){
+    /* Function defined specifically for PMP configuration registers
     Converts the hexadecimal string in the set of pmp configuration registers and converts
     them into binary strings
-    Takes two arguments:
-    1. pmp_cnfgn[][9]: A 2D array containing the data of all the pmp configuration registers
-    2. num_reg: An int which corresponds to the number of pmp configuration registers
+    Takes a single argument:
+    pmp_cnfgn[64][9]: A 2D array containing the data of all the pmp configuration registers
     The function's return type is void
     Changes are made on default pmp configuration registers, not on a separate instance */
     int j, len, pos, i, val;
     char *end_ptr;
     char temp[9]; // temporary variable to store binary string
-    for (j = 0; j < num_reg; j++){
+    for (j = 0; j < 64; j++){
         // Inserting missing leading 0's
-        end_ptr = strchr(pmp_cnfgn[j], '\n');
-        len = end_ptr - pmp_cnfgn[j] - 2;
+        end_ptr = strchr(pmp_cnfgn[j], '\n'); // Points to the '\n' character
+        len = end_ptr - pmp_cnfgn[j] - 2; // Length of hex string, excluding "0x" and '\n'
         pos = 0;
-        for (int j = 0; j < 2 - len; j++){
+        // Insering missing leading 0's in binary string
+        if (len < 2){
             strncpy(temp + pos, bin[0], 4);
             pos += 4;
         }
 
         i = 2;
         while (pmp_cnfgn[j][i] != '\n'){
+            // Conversion of hex character to a binary string of length 4 
             if ((pmp_cnfgn[j][i] >= '0' ) && (pmp_cnfgn[j][i] <= '9')){
                 val = pmp_cnfgn[j][i] - '0';
                 strncpy(temp + pos, bin[val], 4);
@@ -174,11 +175,17 @@ void Bin_convert(char pmp_cnfgn[][9], int num_reg){
             i++;
         }
         temp[8] = '\0';
+        // Binary string replaces the hex string in default pmp_cnfgn array
         strcpy(pmp_cnfgn[j], temp);
     }
 }
 
 void mode_store(char pmp_cnfgn[64][9], int addr_mode[64]){
+    /* Function stores address mode of each pmp entry in a separate 1D array for easy access
+    Takes two arguments:
+    1. pmp_cnfgn[64][9]: A 2D array containg the data of pmp configuration registers in binary format
+    2. addr_mode[64]: A 1D array to store the address mode of each pmp entry at the corresponding index
+    Return type is void*/
     int i;
     for (i = 0; i < 64; i++){
         addr_mode[i] = MODE_check(pmp_cnfgn, i);
@@ -187,27 +194,33 @@ void mode_store(char pmp_cnfgn[64][9], int addr_mode[64]){
 
 int MODE_check(char pmp_cnfgn[64][9], int pointer){
     /* Function to check address mode of a given configuration register
-    Takes 3 arguments:
-    1. pmp_cnfgn[][9]: A 2D array containing the data of all the pmp configuration registers
-    2. num_reg: An int corresponding to the total number of configuration registers
-    3. pointer: register number for which the address mode is to be checked 
+    Takes 2 arguments:
+    1. pmp_cnfgn[64][9]: A 2D array containing the data of all the pmp configuration registers in 
+    binary format
+    2. pointer: register number for which the address mode is to be checked 
     Returns an int corresponding to address modes of the pmp configuration register
     */
-    if ((pmp_cnfgn[pointer][3] == '0') && (pmp_cnfgn[pointer][4] == '0')){
+    if ((pmp_cnfgn[pointer][3] == '0') && (pmp_cnfgn[pointer][4] == '0')){ // OFF mode
         return 0;
     }
-    else if ((pmp_cnfgn[pointer][3] == '0') && (pmp_cnfgn[pointer][4] == '1')){
+    else if ((pmp_cnfgn[pointer][3] == '0') && (pmp_cnfgn[pointer][4] == '1')){ // TOR mode
         return 1;
     }
-    else if ((pmp_cnfgn[pointer][3] == '1') && (pmp_cnfgn[pointer][4] == '0')){
+    else if ((pmp_cnfgn[pointer][3] == '1') && (pmp_cnfgn[pointer][4] == '0')){ // NA4 mode
         return 2;
     }
-    else if ((pmp_cnfgn[pointer][3] == '1') && (pmp_cnfgn[pointer][4] == '1')){
+    else if ((pmp_cnfgn[pointer][3] == '1') && (pmp_cnfgn[pointer][4] == '1')){ // NAPOT mode
         return 3;
     }
 }
 
 int addr_search(char pmp_addr[64][13], int addr_mode[64], char *addr){
+    /* Function that searches for the correct pmp entry based on the given memory address
+    Takes 3 arguments:
+    1. pmp_addr[64][13]: A 2D array that contains the data of all the pmp address registers in hex format
+    2. addr_mode[64]: A 1D array that contains the address mode of the corresponding pmp entries
+    3. addr: Hex string, which is the address of memory location to be looked for
+    Return type is an int, which is the pmp entry number corresponing the relevant memory block*/
     int i = 0;
     int bool;
     while (i < 64){
@@ -226,44 +239,53 @@ int addr_search(char pmp_addr[64][13], int addr_mode[64], char *addr){
             // NAPOT Mode
             bool = NAPOT_addr_check(pmp_addr[i], addr);
         }
-        if (bool == 1){
+        if (bool == 1){ // If addr lies in the memory block protected by the ith pmp entry, than entry number is returned
             return i;
         }
         i++;
     }
-    return 100;
+    return 100; // No relevant entry found
 }
 
 int TOR_addr_check(char pmp_addr[64][13], char *addr, int pointer){
-    /* This function searches for the relevant PMP address register, given the relevant memory address
-    mode is TOR
-    Takes 4 arguments:
-    1. pmp_addr[][13]: A 2D array containing the data of all 64 pmp address registers
-    2. num_reg: An int corresponding to the number of pmp address registers
-    3. addr: A hexadecimal string for the address of the memory location that is being searched for
-    4. pointer: starting register number
-    Returns an int which corresponds to the relevant address register number*/
+    /* This function checks if the searched address lies in the memory block protected by the given
+    pmp entry, when PMP entry is in TOR mode 
+    Takes 3 arguments:
+    1. pmp_addr[64][13]: A 2D array containing the data of all 64 pmp address registers in hex format
+    2. addr: A hexadecimal string for the address of the memory location that is being searched for
+    3. pointer: pmp entry which needs to be checked
+    Returns an int which verifies whether the searched address is protected by the given pmp entry
+    A return value of 1 implies, yes it is protected by the given entry
+    Otherwise, it returns 0*/
     
-    char *temp1 = pmp_addr[pointer];
+    char *temp1 = pmp_addr[pointer];  // Stores address data of current pmp entry
     if (pointer != 0){
-        char *temp2 = pmp_addr[pointer];
-        while (*temp2){
-            if ((*temp2 == '\n') && (*temp2 == '\r')){
+        char *temp2 = pmp_addr[pointer-1]; // Stores address of previous pmp entry if current entry number is not 0
+        while (*temp2){ // Repaces any '\n' or '\r' character with '\0'
+            if ((*temp2 == '\n') || (*temp2 == '\r')){
                 *temp2 = '\0';
             }
             temp2++;
         }
     }
-    while (*temp1){
-        if ((*temp1 == '\n') && (*temp1 == '\r')){
+    while (*temp1){ // Repaces any '\n' or '\r' character with '\0'
+        if ((*temp1 == '\n') || (*temp1 == '\r')){
             *temp1 = '\0';
         }
         temp1++;
     }
 
-    uint64_t pointer1_dec = strtoull(pmp_addr[pointer], NULL, 16);
-    uint64_t pointer2_dec = strtoull(pmp_addr[pointer-1], NULL, 16);
-    uint64_t input_dec = strtoull(addr, NULL, 16);
+    uint64_t pointer1_dec = strtoull(pmp_addr[pointer], NULL, 16); // Converts hex string to a 64-bit int
+    uint64_t pointer2_dec;
+
+    if (pointer != 0){
+        pointer2_dec = strtoull(pmp_addr[pointer-1], NULL, 16); // Converts hex string to a 64-bit int if current pmp entry number is not 0
+    }
+    else{
+        pointer2_dec = 0;
+    }
+    
+    uint64_t input_dec = strtoull(addr, NULL, 16); 
 
     if ((input_dec >= pointer2_dec) && (input_dec < pointer1_dec)){
         return 1;
@@ -274,15 +296,23 @@ int TOR_addr_check(char pmp_addr[64][13], char *addr, int pointer){
 }
 
 int NA4_addr_check(char pmp_addr_reg[13], char *addr){
-    char *temp = pmp_addr_reg;
-        while (*temp){
-            if ((*temp == '\n') && (*temp == '\r')){
+    /* This function checks if the searched address lies in the memory block protected by the given
+    pmp entry, when PMP entry is in NA4 mode 
+    Takes 2 arguments:
+    1. pmp_addr_reg[13]: A 1D array containing the data of the given pmp address register in hex format
+    2. addr: A hexadecimal string for the address of the memory location that is being searched for
+    Returns an int which verifies whether the searched address is protected by the given pmp entry
+    A return value of 1 implies, yes it is protected by the given entry
+    Otherwise, it returns 0*/
+    char *temp = pmp_addr_reg; // Stores address data of current pmp entry
+        while (*temp){ // Repaces any '\n' or '\r' character with '\0'
+            if ((*temp == '\n') || (*temp == '\r')){
                 *temp = '\0';
             }
             temp++;
         }
-    uint64_t pointer_dec = strtoull(pmp_addr_reg, NULL, 16);
-    uint64_t input_dec = strtoull(addr, NULL, 16);
+    uint64_t pointer_dec = strtoull(pmp_addr_reg, NULL, 16); // Converts hex string to a 64-bit int
+    uint64_t input_dec = strtoull(addr, NULL, 16); // Converts hex string to a 64-bit int
 
     if ((input_dec >= pointer_dec) && (input_dec < pointer_dec + 3)){
         return 1;
@@ -293,12 +323,20 @@ int NA4_addr_check(char pmp_addr_reg[13], char *addr){
 }
 
 int NAPOT_addr_check(char *pmp_addr_reg, char *addr){
-    char bin_pmp_addr[35];
-    addr_bin_conv(pmp_addr_reg, bin_pmp_addr);
-    uint64_t offset = NAPOT_offset(bin_pmp_addr);
-    uint64_t base = NAPOT_base(bin_pmp_addr);
+    /* This function checks if the searched address lies in the memory block protected by the given
+    pmp entry, when PMP entry is in NAPOT mode 
+    Takes 2 arguments:
+    1. pmp_addr_reg[13]: A 1D array containing the data of the given pmp address register in hex format
+    2. addr: A hexadecimal string for the address of the memory location that is being searched for
+    Returns an int which verifies whether the searched address is protected by the given pmp entry
+    A return value of 1 implies, yes it is protected by the given entry
+    Otherwise, it returns 0*/
+    char bin_pmp_addr[35]; // Array to store address data of given pmp entry in binary format
+    addr_bin_conv(pmp_addr_reg, bin_pmp_addr); // Converts hex address to binary format
+    uint64_t offset = NAPOT_offset(bin_pmp_addr); // Finding encoded offset for the given pmp entry in NAPOT mode
+    uint64_t base = NAPOT_base(bin_pmp_addr); // Finding encoded base address for the given pmp entry in NAPOT mode
 
-    uint64_t search_addr = strtoull(addr, NULL, 16);
+    uint64_t search_addr = strtoull(addr, NULL, 16); // Converts hex string to a 64 bit int
     if ((search_addr >= base) && (search_addr < base + offset)){
         return 1;
     }
@@ -308,66 +346,70 @@ int NAPOT_addr_check(char *pmp_addr_reg, char *addr){
 }
 
 void addr_bin_conv(char *pmp_addr_reg, char *bin_addr){
-    char temp[35]; // temporary variable to store binary string
+    /* This function converts a address data of at max 9 hex digits to a string of 34 binary digits
+    It takes two arguments:
+    1. pmp_addr_reg: String containing address data of a given pmp entry in hex format
+    2. Empty string, which will store the binary form of address data
+    Return type of the function is void*/
     int val;
     int i = 2;
     int pos = 0;
 
     // Inserting 2 MSB bits
-    char *end_ptr = strchr(pmp_addr_reg, '\n');
-    int len = end_ptr - pmp_addr_reg - 2;
-    char *two_zero = "00";
+    char *end_ptr = strchr(pmp_addr_reg, '\n'); // Index at which '\n' character is present
+    int len = end_ptr - pmp_addr_reg - 2; // Length of hex string excluding "0x" and '\n'
+    // Case where 9th hex character is missing. Implying it is 0
     if (len < 9){
-        strncpy(temp + pos, two_zero, 2);
+        strncpy(bin_addr + pos, "00", 2);
         pos += 2;
     }
+    // Case where 9th hex character is present. It will be a 2 bit character, since maximum bits are 34
     else if (len == 9){
         val = pmp_addr_reg[i] - '0';
         if (val == 0){
-            strncpy(temp + pos, "00", 2);
+            strncpy(bin_addr + pos, "00", 2);
         }
         else if (val == 1){
-            strncpy(temp + pos, "01", 2);
+            strncpy(bin_addr + pos, "01", 2);
         }
         else if (val == 2){
-            strncpy(temp + pos, "10", 2);
+            strncpy(bin_addr + pos, "10", 2);
         }
         else if (val == 3){
-            strncpy(temp + pos, "11", 2);
+            strncpy(bin_addr + pos, "11", 2);
         }
         pos += 2;
     }
-    
+    // Rest of the hex characters are of 4 bits, so if they are missing, this implies that they are 0
     for (int j = 0; j < 9 - len - 1; j++){
-        strncpy(temp + pos, bin[0], 4);
+        strncpy(bin_addr + pos, bin[0], 4);
         pos += 4;
     }
 
+    // Converting the available hex characters to binary
     while (pmp_addr_reg[i] != '\n'){
         if ((pmp_addr_reg[i] >= '0' ) && (pmp_addr_reg[i] <= '9')){
             val = pmp_addr_reg[i] - '0';
-            strncpy(temp + pos, bin[val], 4);
+            strncpy(bin_addr + pos, bin[val], 4);
         }
         else if ((pmp_addr_reg[i] >= 'A') && (pmp_addr_reg[i] <= 'F')){
             val = pmp_addr_reg[i] - 'A' + 10;
-            strncpy(temp + pos, bin[val], 4);
+            strncpy(bin_addr + pos, bin[val], 4);
         }
         else{
             val = pmp_addr_reg[i] - 'a' + 10;
-            strncpy(temp + pos, bin[val], 4);
+            strncpy(bin_addr + pos, bin[val], 4);
         }
         pos += 4; 
         i++;
     }
-    for (int k = 0; k < 34; k++){
-        printf("%c", temp[k]);
-    }
-    printf("\n");
-    temp[34] = '\0';
-    strcpy(bin_addr, temp);
+    bin_addr[34] = '\0';
 }
 
 uint64_t NAPOT_offset(char bin_addr[35]){
+    /* This function decodes the offset from pmp address register in NAPOT mode
+    It takes a single argument:
+    bin_addr[35]: A 1D array of characters, containing address for a given pmp entry in hex format*/
     int i = 31;
     int power = 2; 
     while (i > 1){
@@ -382,11 +424,13 @@ uint64_t NAPOT_offset(char bin_addr[35]){
     for (int j = 0; j < power; j++){
         offset *= 2;
     }
-    printf("Offset: %" PRIu64 "\n", offset);
     return offset;
 }
 
 uint64_t NAPOT_base(char bin_addr[35]){
+    /* This function decodes the base address from pmp address register in NAPOT mode
+    It takes a single argument:
+    bin_addr[35]: A 1D array of characters, containing address for a given pmp entry in hex format*/
     int i = 31; 
     while (i > 1){
         if (bin_addr[i] == '0'){
@@ -397,16 +441,17 @@ uint64_t NAPOT_base(char bin_addr[35]){
         }
         i--;
     }
-    for (int k = 0; k < 34; k++){
-        printf("%c", bin_addr[k]);
-    }
 
     uint64_t base = strtoull(bin_addr, NULL, 2);
-    printf("base: %" PRIu64 "\n", base);
     return base;
 }
 
 int checkLock(char pmp_cnfgn[64][9]){
+    /* This function checks if Lock bit is enabled in any pmp configuration register
+    It takes a single argument:
+    pmp_cnfgn[64][9]: A 2D array containing the data of all the pmp configuration registers in binary format
+    Returns a 1 if any pmp config register has Lock bit enabled
+    Otherwise it returns a 0*/
     for (int i = 0; i < 64; i++){
         if (pmp_cnfgn[i][0] == '1'){
             return 1;
