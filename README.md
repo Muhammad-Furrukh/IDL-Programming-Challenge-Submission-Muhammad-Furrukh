@@ -26,4 +26,6 @@ Below is an example when running the program:
 ```
 ./PMP_check .\pmp_configuration.txt 0x560000 M R
 ```
-
+### Output:
+The program prints the hexadecimal data of all the pmp configuration and address registers like this:
+()
