@@ -18,5 +18,12 @@ The submitted program takes 4 inputs:
 1. filepath: This is the path of the pmp configuration file
 2. address: Address of the memory location for which the permissions are to be checked. This will be hex string of maximum 9 characters, excluding '0x'
 3. mode: Privelege mode which can either 'M', 'S' or 'U'. No other input will be accepted
-4. oper: The operation which is to be performed on the data in the desired memory location, which can be either 'R' (read), 'W' (write) or 'X' (execute). No other input will be accepted
+4. oper: The operation which is to be performed on the data in the desired memory location, which can be either 'R' (read), 'W' (write) or 'X' (execute). No other input will be accepted.
+
+**No additional inputs will be accepted.**
+
+Below is an example when running the program:
+```
+./PMP_check .\pmp_configuration.txt 0x560000 M R
+```
 
