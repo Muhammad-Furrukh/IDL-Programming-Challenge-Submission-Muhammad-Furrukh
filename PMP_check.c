@@ -213,7 +213,13 @@ int addr_search(char pmp_addr[64][13], int addr_mode[64], char *addr){
         else if (addr_mode[i] == 1){
             // TOR Mode
             bool = TOR_addr_check(pmp_addr[i], addr);
-            
+        }
+        else if (addr_mode[i] == 2){
+            // NA4 Mode
+            bool = NA4_addr_check(pmp_addr[i], addr);
+        }
+        if (bool == 1){
+            return i;
         }
         i++;
     }
@@ -243,7 +249,7 @@ int TOR_addr_check(char pmp_addr_reg[13], char *addr){
             k--;
             l++;
         }
-        else if ((addr[k] != 'x') && (pmp_addr_reg[start - 1 - l] == 'x')){ // pmp_addr[j] traversed first, so addr is out of range
+        else if ((addr[k] != 'x') && (pmp_addr_reg[start - 1 - l] == 'x')){ // pmp_addr_reg traversed first, so addr is out of range
             return 0;
         }
         else if ((addr[k] == 'x') && (pmp_addr_reg[start - 1 - l] != 'x')){ // addr is traversed first, so is within the range
@@ -253,6 +259,9 @@ int TOR_addr_check(char pmp_addr_reg[13], char *addr){
         else if ((addr[k] == 'x') && (pmp_addr_reg[start - 1 - l] == 'x')){ // Both traversed at the same time. Hence, length of strings is equal
             // Moving to less significant bits as long as the MS hex digit's are same
             while (addr[k+1] == pmp_addr_reg[start - l]){
+                if (l == 0){
+                    return 0;
+                }
                 k++;
                 l--;
             }
@@ -267,22 +276,22 @@ int TOR_addr_check(char pmp_addr_reg[13], char *addr){
     }
 }
 
-int addr_search_NA4(char pmp_addr[][13], int num_reg, char *addr, int pointer){
-    char *temp = pmp_addr[pointer];
+int NA4_addr_check(char pmp_addr_reg[13], char *addr){
+    char *temp = pmp_addr_reg;
         while (*temp){
             if ((*temp == '\n') && (*temp == '\r')){
                 *temp = '\0';
             }
             temp++;
         }
-    long pointer_dec = strtol(pmp_addr[pointer], NULL, 16);
+    long pointer_dec = strtol(pmp_addr_reg, NULL, 16);
     long input_dec = strtol(addr, NULL, 16);
 
     if ((input_dec >= pointer_dec) && (input_dec < pointer_dec + 3)){
-        return pointer;
+        return 1;
     }
     else{
-        return -1;
+        return 0;
     }
 }
 
