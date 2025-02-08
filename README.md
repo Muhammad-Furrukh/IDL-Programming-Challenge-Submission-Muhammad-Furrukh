@@ -9,6 +9,8 @@ While writing the program, the following assumptions were made regarding the con
 - All the data is in hexadecimal format
 - The hexadecimal digits can be either in upper or lower case
 - The hexadecimal strings begin with '0x'
+- PMP configuration register data can range from 1 to 2 hex characters
+- PMP address register data can range from 1 to 9 hex characters
 - There are no semi-colons or full stops at the end of each line and no additional text apart from the data in the registers
 - **The pmp address register data in the file already contains the two least significant bits of the address, making it a 34 bit data**
 
@@ -28,4 +30,11 @@ Below is an example when running the program:
 ```
 ### Output:
 The program prints the hexadecimal data of all the pmp configuration and address registers like this:
-()
+
+![Output-ss](https://github.com/Muhammad-Furrukh/IDL-Programming-Challenge-Submission-Muhammad-Furrukh/blob/main/Screenshot%202025-02-08%20210705.png)
+
+This is for the aid in debugging, where the relevant pmp register number and its data is printed out on the terminal.
+
+At the end, the program prints whether an access fault occured or not, when accessing the given memory section.
+
+
